@@ -250,6 +250,7 @@ class ConnectionPool(object):
 
     def __init__(self, keyspace,
                  server_list=['localhost:9160'],
+                 discover = None,
                  credentials=None,
                  timeout=0.5,
                  use_threadlocal=True,
@@ -263,6 +264,8 @@ class ConnectionPool(object):
         the pool will connect to. The port defaults to 9160 if excluded.
         The list will be randomly shuffled before being drawn from sequentially.
         `server_list` may also be a function that returns the sequence of servers.
+
+        `discover` is a class used for auto discovery. look in ::discover.py
 
         If authentication or authorization is required, `credentials` must
         be supplied.  This should be a dictionary containing 'username' and
@@ -352,6 +355,7 @@ class ConnectionPool(object):
             if kw in kwargs:
                 setattr(self, kw, kwargs[kw])
 
+        self.discover = discover
         self.set_server_list(server_list)
 
         self._prefill = prefill
@@ -371,6 +375,11 @@ class ConnectionPool(object):
             self.server_list = list(server_list())
         else:
             self.server_list = list(server_list)
+
+        if self.discover:
+            discover = self.discover(self.keyspace, self.server_list)
+            servers = discover.get_ring()
+            self.server_list = servers
 
         random.shuffle(self.server_list)
         self._list_position = 0
